@@ -124,21 +124,38 @@ class MotiveReceiver:
         self.list_raw_packets.append(packet_content)
         
     def normalizer_data(self, dict_data):
+        # Create a mapping from rigid body ID to marker set info
+        # The marker_sets_labeled_data contains the names in order, but we need to match by ID
         labels_rows = [_["model_name"] for _ in dict_data["marker_sets_labeled_data"]]
         dict_data["rigid_bodies_full"] = {}
 
-        for __ in dict_data["rigid_bodies"]:
-            id_ = __["id_num"]-1
-            out = __
-            out["model_name"] = labels_rows[id_]
-            out["markers"] = dict_data["marker_sets_labeled_data"][id_]["marker_pos_list"]
-            if len(dict_data["labeled_markers"])-1 >= id_ and id_ >= 0:
-                #print("id",id_)
-                #print(dict_data["labeled_markers"])
-                out["labeled_markers"] = dict_data["labeled_markers"][id_]
-            model_name = out["model_name"].decode()
-            del out["model_name"]
-            dict_data["rigid_bodies_full"][model_name] = out
+        # Create an ID-to-name mapping. Since the current approach assumes sequential IDs
+        # but real data has non-sequential IDs, we need a different approach.
+        # For now, we'll create a mapping based on the order of rigid bodies in the stream
+        # and assume marker_sets_labeled_data is in the same order.
+        
+        # Sort rigid bodies by ID to get consistent ordering
+        sorted_rigid_bodies = sorted(dict_data["rigid_bodies"], key=lambda x: x["id_num"])
+        
+        for idx, rigid_body in enumerate(sorted_rigid_bodies):
+            out = rigid_body.copy()
+            
+            # Use the index in the sorted list to map to marker sets
+            if idx < len(labels_rows):
+                out["model_name"] = labels_rows[idx]
+                out["markers"] = dict_data["marker_sets_labeled_data"][idx]["marker_pos_list"]
+                
+                if len(dict_data["labeled_markers"]) > idx:
+                    out["labeled_markers"] = dict_data["labeled_markers"][idx]
+                    
+                model_name = out["model_name"].decode()
+                del out["model_name"]
+                dict_data["rigid_bodies_full"][model_name] = out
+            else:
+                # If we have more rigid bodies than marker sets, use a fallback name
+                model_name = f"RigidBody_{rigid_body['id_num']}"
+                dict_data["rigid_bodies_full"][model_name] = out
+                
         return dict_data
     
     def process_packet(self, data_dict):
