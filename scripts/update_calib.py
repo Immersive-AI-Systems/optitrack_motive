@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import hashlib
 import time
 from pathlib import Path
 from typing import Any, Dict, List
@@ -28,6 +29,11 @@ def _calib_root() -> Path:
 
 def _write_json(path: Path, payload: Dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _hash_payload(payload: Dict[str, Any]) -> str:
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
 def main() -> None:
@@ -85,6 +91,23 @@ def main() -> None:
 
     room_prefix = f"{room_name}_" if room_name else "calib_"
     snapshot_path = calib_root / f"{room_prefix}{timestamp}.json"
+
+    latest_existing = None
+    for path in sorted(calib_root.glob(f"{room_prefix}*.json")):
+        if path.name.endswith(".json") and path.name.startswith(room_prefix):
+            latest_existing = path
+
+    if latest_existing is not None:
+        try:
+            existing_payload = json.loads(latest_existing.read_text(encoding="utf-8"))
+        except Exception:
+            existing_payload = None
+
+        if existing_payload is not None:
+            if _hash_payload(existing_payload) == _hash_payload(payload):
+                print("No changes detected; latest calibration is identical.")
+                print(f"Latest   : {latest_existing}")
+                return
 
     _write_json(snapshot_path, payload)
 
