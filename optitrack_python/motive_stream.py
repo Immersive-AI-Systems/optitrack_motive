@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import socket
+import re
 import threading
 import time
 from typing import Any, Dict, List, Tuple
@@ -34,6 +35,11 @@ def _parse_camera_descriptions(data_descs: Any) -> List[Dict[str, Any]]:
         name = getattr(camera_desc, "name", getattr(camera_desc, "camera_name", "Camera"))
         if isinstance(name, bytes):
             name = name.decode("utf-8", errors="ignore")
+        name_str = str(name)
+        serial = None
+        match = re.search(r"#\s*(\d+)", name_str)
+        if match:
+            serial = int(match.group(1))
 
         raw_position = list(getattr(camera_desc, "position", [0.0, 0.0, 0.0]))
         if len(raw_position) < 3:
@@ -47,7 +53,8 @@ def _parse_camera_descriptions(data_descs: Any) -> List[Dict[str, Any]]:
         orientation = tuple(float(x) for x in raw_orientation[:4])
 
         cameras.append({
-            "name": name,
+            "name": name_str,
+            "serial": serial,
             "position": position,
             "orientation": orientation,
         })

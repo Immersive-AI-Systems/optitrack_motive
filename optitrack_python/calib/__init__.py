@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 from importlib import resources
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
+import datetime as _dt
 
 
 def _calib_root() -> Path:
@@ -18,11 +19,43 @@ def _latest_filename(room: Optional[str]) -> str:
     return "calib_latest.json"
 
 
+def _parse_calib_timestamp(name: str, room: Optional[str]) -> Optional[_dt.datetime]:
+    """Parse YYMMDD_HHMM timestamp from a calibration filename."""
+    prefix = f"{room}_" if room else "calib_"
+    if not name.startswith(prefix) or not name.endswith(".json"):
+        return None
+    token = name[len(prefix):-5]
+    try:
+        return _dt.datetime.strptime(token, "%y%m%d_%H%M")
+    except ValueError:
+        return None
+
+
+def list_calibs(room: Optional[str] = None) -> List[Path]:
+    """Return sorted calibration files (newest last)."""
+    root = _calib_root()
+    if not root.exists():
+        return []
+
+    prefix = f"{room}_" if room else "calib_"
+    calibs = [
+        p for p in root.iterdir()
+        if p.is_file() and p.name.startswith(prefix) and p.name.endswith(".json")
+        and "latest" not in p.name
+    ]
+    return sorted(calibs, key=lambda p: p.name)
+
+
+def list_calib_names(room: Optional[str] = None) -> List[str]:
+    """Return sorted calibration filenames (newest last)."""
+    return [path.name for path in list_calibs(room)]
+
+
 def latest_json_path(room: Optional[str] = None) -> Optional[Path]:
     """Return the latest calibration JSON path if it exists."""
-    snapshots = list_snapshots(room)
-    if snapshots:
-        return snapshots[-1]
+    calibs = list_calibs(room)
+    if calibs:
+        return calibs[-1]
 
     # Backward compatibility with previous layout.
     root = _calib_root()
@@ -45,15 +78,48 @@ def load_latest(room: Optional[str] = None) -> Optional[Dict[str, Any]]:
 
 
 def list_snapshots(room: Optional[str] = None) -> List[Path]:
-    """Return sorted snapshot files (newest last)."""
-    root = _calib_root()
-    if not root.exists():
-        return []
+    """Backward compatible alias for list_calibs()."""
+    return list_calibs(room)
 
-    prefix = f"{room}_" if room else "calib_"
-    snapshots = [
-        p for p in root.iterdir()
-        if p.is_file() and p.name.startswith(prefix) and p.name.endswith(".json")
-        and "latest" not in p.name
-    ]
-    return sorted(snapshots, key=lambda p: p.name)
+
+def list_snapshot_names(room: Optional[str] = None) -> List[str]:
+    """Backward compatible alias for list_calib_names()."""
+    return list_calib_names(room)
+
+
+def find_calib_at_or_before(
+    target: Union[str, _dt.datetime],
+    room: Optional[str] = None,
+) -> Optional[Path]:
+    """Return the calibration file at or before the given date/time.
+
+    The target can be a datetime or a string in YYYY-MM-DD, YYYY-MM-DDTHH:MM,
+    or YYMMDD_HHMM format. The match uses local time for parsing strings.
+    """
+    if isinstance(target, _dt.datetime):
+        target_dt = target
+    else:
+        text = target.strip()
+        for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M", "%y%m%d_%H%M"):
+            try:
+                target_dt = _dt.datetime.strptime(text, fmt)
+                break
+            except ValueError:
+                target_dt = None
+        if target_dt is None:
+            raise ValueError(
+                "Unsupported date format. Use YYYY-MM-DD, YYYY-MM-DDTHH:MM, or YYMMDD_HHMM."
+            )
+
+    candidates: List[Tuple[_dt.datetime, Path]] = []
+    for path in list_calibs(room):
+        ts = _parse_calib_timestamp(path.name, room)
+        if ts is None:
+            continue
+        if ts <= target_dt:
+            candidates.append((ts, path))
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: item[0])
+    return candidates[-1][1]
