@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
     streaming_client.new_frame_listener = receive_new_frame
     print("Starting NatNet client thread...") # New message
-    is_running_initially = streaming_client.run() # Renamed variable
+    is_running_initially = streaming_client.run('d') # Renamed variable
 
     if not is_running_initially:
         print("ERROR: Could not start NatNet client. Please check connection and IPs.")

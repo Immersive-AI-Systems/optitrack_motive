@@ -8,6 +8,7 @@ tmp*.py
 logs/*
 xj*.py
 xa*.py
+NatNet_SDK_4.4/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

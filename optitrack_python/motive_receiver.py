@@ -111,7 +111,7 @@ class MotiveReceiver:
             self.streaming_client.set_use_multicast(optionsDict["use_multicast"])
             self.streaming_client.new_frame_listener = self.process_packet
                 
-            is_running = self.streaming_client.run()
+            is_running = self.streaming_client.run('d')
             if not is_running:
                 print("ERROR: Could not start streaming client.")
                 return

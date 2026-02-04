@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
     # Start an asynchronous infinite loop.
     # This will run in a separate thread and call the receive_new_frame callback.
-    is_running = streaming_client.run()
+    is_running = streaming_client.run('d')
     print(f"streaming_client.run() returned: {is_running}")
 
     if not is_running:
