@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import time
 import argparse
-from optitrack_python.motive_receiver import MotiveReceiver
-from optitrack_python.rigid_body import RigidBody
+from optitrack_motive.motive_receiver import MotiveReceiver
+from optitrack_motive.rigid_body import RigidBody
 import sys
 try:
     import pygame

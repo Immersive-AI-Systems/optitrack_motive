@@ -187,7 +187,7 @@ def get_fract(val_fract0, val_fract1, val):
 
 
 if __name__ == "__main__":
-    from optitrack_python.motive_receiver import MotiveReceiver
+    from optitrack_motive.motive_receiver import MotiveReceiver
     
     # Use the exact same setup as the working motive_receiver.py example
     print("Connecting to OptiTrack...")

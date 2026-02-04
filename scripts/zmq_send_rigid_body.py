@@ -6,11 +6,11 @@ import os
 import argparse
 import random
 
-# Add the parent directory to the path to import optitrack_python
+# Add the parent directory to the path to import optitrack_motive
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from optitrack_python.motive_receiver import MotiveReceiver
-from optitrack_python.rigid_body import RigidBody
+from optitrack_motive.motive_receiver import MotiveReceiver
+from optitrack_motive.rigid_body import RigidBody
 
 # Helper to scale values
 def scale_value(val, in_min, in_max, out_min, out_max):

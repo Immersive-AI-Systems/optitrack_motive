@@ -1,5 +1,5 @@
 import time
-from optitrack_python.streaming.NatNetClient import NatNetClient
+from optitrack_motive.streaming.NatNetClient import NatNetClient
 
 # This is a callback function that gets connected to the NatNet client.
 # It is called once per mocap frame.

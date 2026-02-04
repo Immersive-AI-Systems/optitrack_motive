@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import time
 import argparse
-from optitrack_python.motive_receiver import MotiveReceiver
+from optitrack_motive.motive_receiver import MotiveReceiver
 import sys
 import datetime
 import numpy as np

@@ -1,4 +1,4 @@
-# OptiTrack Python
+# OptiTrack Motive
 
 A modern Python client library for OptiTrack's NatNet streaming protocol, enabling real-time motion capture data retrieval from OptiTrack systems.
 
@@ -14,7 +14,7 @@ A modern Python client library for OptiTrack's NatNet streaming protocol, enabli
 ## Installation
 
 ```bash
-pip install git+https://github.com/yourusername/optitrack_python.git
+pip install git+https://github.com/Immersive-AI-Systems/optitrack_motive.git
 ```
 
 ### Dependencies
@@ -25,7 +25,7 @@ pip install git+https://github.com/yourusername/optitrack_python.git
 ## Quick Start
 
 ```python
-from optitrack_python.streaming.NatNetClient import NatNetClient
+from optitrack_motive.streaming.NatNetClient import NatNetClient
 
 def receive_frame(data_dict):
     print(f"Frame {data_dict['frame_number']}: {len(data_dict['mocap_data'].rigid_body_data.rigid_body_list)} rigid bodies")
@@ -87,7 +87,7 @@ python scripts/zmq_send_rigid_body.py
 The main class for receiving motion capture data:
 
 ```python
-from optitrack_python.motive_receiver import MotiveReceiver
+from optitrack_motive.motive_receiver import MotiveReceiver
 
 # Create receiver
 motive = MotiveReceiver(server_ip="10.40.49.47")
@@ -104,8 +104,8 @@ rigid_body_data = motive.get_last_by_model("rigid_bodies_full", "MyRigidBody")
 Simplified interface for tracking individual rigid bodies:
 
 ```python
-from optitrack_python.rigid_body import RigidBody
-from optitrack_python.motive_receiver import MotiveReceiver
+from optitrack_motive.rigid_body import RigidBody
+from optitrack_motive.motive_receiver import MotiveReceiver
 
 motive = MotiveReceiver(server_ip="10.40.49.47")
 rb = RigidBody(motive, "A")  # Track rigid body named "A"
@@ -132,8 +132,8 @@ python diagnostics/rigid_body_tracker.py
 ## Project Structure
 
 ```
-optitrack_python/
-├── optitrack_python/          # Main package
+optitrack_motive/
+├── optitrack_motive/          # Main package
 │   ├── streaming/             # Core NatNet streaming implementation
 │   ├── motive_receiver.py     # High-level data receiver
 │   └── rigid_body.py          # Rigid body tracking utilities

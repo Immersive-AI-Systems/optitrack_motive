@@ -12,7 +12,7 @@ import signal
 # #from util import euler_from_quaternion
 # sys.path.append("/home/lugo/git/NatNetSDK_4.1.0")
 
-from optitrack_python.streaming.NatNetClient import NatNetClient
+from optitrack_motive.streaming.NatNetClient import NatNetClient
 
 
 def compute_sq_distances(a, b):

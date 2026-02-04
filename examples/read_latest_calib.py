@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from optitrack_python import calib
+from optitrack_motive import calib
 
 
 def main() -> None:

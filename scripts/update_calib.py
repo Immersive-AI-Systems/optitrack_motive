@@ -10,8 +10,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List
 
-from optitrack_python.motive_stream import fetch_camera_descriptions
-from optitrack_python.presets import load_room
+from optitrack_motive.motive_stream import fetch_camera_descriptions
+from optitrack_motive.presets import load_room
 
 
 DEFAULT_SERVER_IP = "10.40.49.47"
@@ -23,7 +23,7 @@ def _timestamp_utc() -> str:
 
 
 def _calib_root() -> Path:
-    return Path(__file__).resolve().parents[1] / "optitrack_python" / "calib"
+    return Path(__file__).resolve().parents[1] / "optitrack_motive" / "calib"
 
 
 def _write_json(path: Path, payload: Dict[str, Any]) -> None:
@@ -32,7 +32,7 @@ def _write_json(path: Path, payload: Dict[str, Any]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Fetch camera descriptions from Motive and store them under optitrack_python/calib"
+        description="Fetch camera descriptions from Motive and store them under optitrack_motive/calib"
     )
     parser.add_argument("--server-ip", default=DEFAULT_SERVER_IP, help="Motive server IP address")
     parser.add_argument("--client-ip", default="auto", help="Client IP (default: auto detect)")

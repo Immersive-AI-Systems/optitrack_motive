@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "optitrack_python"
+name = "optitrack_motive"
 version = "4.1.0.0"
 description = "This is a remake of NatNetSDK of optitrack.com"
 authors = ["Lunar Ring", "Vortex5Root"]

@@ -27,7 +27,7 @@ _PACKAGED_PRESETS_ROOT: Optional[Path] = None
 
 
 def _get_packaged_presets_root() -> Optional[Path]:
-    """Locate the bundled presets directory within the optitrack_python package."""
+    """Locate the bundled presets directory within the optitrack_motive package."""
     global _PACKAGED_PRESETS_ROOT
 
     if _PACKAGED_PRESETS_ROOT is not None:
