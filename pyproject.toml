@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "optitrack_motive"
-version = "4.1.0.0"
+version = "0.1.0"
 description = "This is a remake of NatNetSDK of optitrack.com"
 authors = ["Lunar Ring", "Vortex5Root"]
 license = "MIT"
