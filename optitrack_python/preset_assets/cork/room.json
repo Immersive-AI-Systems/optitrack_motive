@@ -1,0 +1,8 @@
+{
+  "room": "cork",
+  "default": {
+    "server_ip": "10.40.49.47",
+    "client_ip": "auto",
+    "use_multicast": true
+  }
+}
