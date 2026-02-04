@@ -179,6 +179,41 @@ def process_frame(data_dict):
     skeletons = mocap_data.skeleton_data.skeleton_list
 ```
 
+## Calibration
+Fetch and store camera calibration snapshots from Motive:
+
+```bash
+python scripts/update_calib.py
+```
+
+Defaults to room `cork`. Snapshots are saved as:
+
+`optitrack_motive/calib/<room>_YYMMDD_HHMM.json`
+
+The latest calibration is inferred from the newest snapshot. If the server returns identical
+data, the script skips saving and reports no changes.
+
+Load and query calibrations:
+
+```python
+from optitrack_motive import calib
+
+# Latest calibration for a room
+latest = calib.load_latest(room="cork")
+
+# List all calibration files
+all_calibs = calib.list_calibs(room="cork")
+
+# Find the closest calibration at or before a date
+closest = calib.find_calib_at_or_before("2026-02-05", room="cork")
+
+# Build a dict keyed by camera name
+by_name = {cam["name"]: cam for cam in latest.get("cameras", [])}
+first = next(iter(by_name.values()), None)
+if first:
+    print(first["serial"], first["position"], first["orientation"])
+```
+
 ## Recording and Playback
 
 Record streaming data for later analysis:
