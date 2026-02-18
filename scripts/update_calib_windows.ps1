@@ -49,7 +49,7 @@ function Initialize-Conda {
         throw "conda command not found. Install Anaconda/Miniconda or add it to PATH."
     }
 
-    $hook = & $conda.Source "shell.powershell" "hook" 2>$null
+    $hook = (& $conda.Source "shell.powershell" "hook" 2>$null | Out-String)
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($hook)) {
         throw "Unable to initialize conda PowerShell hook via $($conda.Source)"
     }
