@@ -186,6 +186,18 @@ Fetch and store camera calibration snapshots from Motive:
 python scripts/update_calib.py
 ```
 
+Windows runner (conda env + pull + update + conditional commit/push):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/update_calib_windows.ps1 -CondaEnv rtd
+```
+
+From another machine via SSH to `Admin@kyushu`:
+
+```bash
+ssh Admin@kyushu 'powershell -NoProfile -ExecutionPolicy Bypass -File "$HOME\git\optitrack_motive\scripts\update_calib_windows.ps1" -CondaEnv rtd'
+```
+
 Defaults to room `cork`. Snapshots are saved as:
 
 `optitrack_motive/calib/<room>_YYMMDD_HHMM.json`
