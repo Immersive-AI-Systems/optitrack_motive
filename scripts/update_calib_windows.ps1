@@ -90,6 +90,13 @@ try {
     }
 
     Invoke-Step "Update camera calibration" {
+        if ([string]::IsNullOrWhiteSpace($env:PYTHONPATH)) {
+            $env:PYTHONPATH = $RepoPath
+        }
+        else {
+            $env:PYTHONPATH = "$RepoPath;$($env:PYTHONPATH)"
+        }
+
         $cmd = @("scripts/update_calib.py", "--room", $Room)
         if ($ServerIp) {
             $cmd += @("--server-ip", $ServerIp)
