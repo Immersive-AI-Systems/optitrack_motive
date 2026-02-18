@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$RepoPath = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
+    [string]$RepoPath = "",
     [string]$CondaEnv = "rtd",
     [string]$Branch = "main",
     [string]$CommitMessage = "camera calibration update",
@@ -11,6 +11,17 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($RepoPath)) {
+    $scriptRoot = $PSScriptRoot
+    if ([string]::IsNullOrWhiteSpace($scriptRoot)) {
+        $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+    }
+    if ([string]::IsNullOrWhiteSpace($scriptRoot)) {
+        throw "Unable to resolve script location; pass -RepoPath explicitly."
+    }
+    $RepoPath = (Resolve-Path (Join-Path $scriptRoot "..")).Path
+}
 
 function Invoke-Step {
     param(
