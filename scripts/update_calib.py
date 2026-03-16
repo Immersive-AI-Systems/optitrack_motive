@@ -31,8 +31,14 @@ def _write_json(path: Path, payload: Dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
+def _hashable_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    stable = dict(payload)
+    stable.pop("generated_at_utc", None)
+    return stable
+
+
 def _hash_payload(payload: Dict[str, Any]) -> str:
-    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    serialized = json.dumps(_hashable_payload(payload), sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 

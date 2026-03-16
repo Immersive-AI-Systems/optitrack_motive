@@ -186,6 +186,12 @@ Fetch and store camera calibration snapshots from Motive:
 python scripts/update_calib.py
 ```
 
+Or ingest the full Motive `.mcal` calibration file:
+
+```bash
+python scripts/update_calib_from_mcal.py --mcal-path "C:\ProgramData\OptiTrack\Motive\System Calibration.mcal"
+```
+
 Windows runner (conda env + pull + update + conditional commit/push):
 
 ```powershell
@@ -198,12 +204,16 @@ From another machine via SSH to `Admin@kyushu`:
 ssh Admin@kyushu 'powershell -NoProfile -ExecutionPolicy Bypass -File "$HOME\git\optitrack_motive\scripts\update_calib_windows.ps1" -CondaEnv rtd'
 ```
 
+The Windows runner now defaults to the richer local `.mcal` source at
+`C:\ProgramData\OptiTrack\Motive\System Calibration.mcal`. Use
+`-CalibrationSource natnet` if you want the older NatNet-only fetch path.
+
 Defaults to room `cork`. Snapshots are saved as:
 
 `optitrack_motive/calib/<room>_YYMMDD_HHMM.json`
 
-The latest calibration is inferred from the newest snapshot. If the server returns identical
-data, the script skips saving and reports no changes.
+The latest calibration is inferred from the newest snapshot. If the calibration payload is
+identical to the previous snapshot, the script skips saving and reports no changes.
 
 Load and query calibrations:
 
@@ -225,6 +235,11 @@ first = next(iter(by_name.values()), None)
 if first:
     print(first["serial"], first["position"], first["orientation"])
 ```
+
+When the `.mcal` path is used, each camera entry still includes `serial`, `position`, and
+`orientation`, plus richer sections such as `properties`, `attributes`, `intrinsic`,
+`intrinsic_standard_camera_model`, `extrinsic`, filter settings, and the full `raw_mcal`
+tree for fields not yet normalized.
 
 ## Recording and Playback
 
@@ -253,4 +268,3 @@ Apache License 2.0 - see LICENSE file for details.
 ## Contributing
 
 Contributions welcome! Please feel free to submit issues and pull requests.
-

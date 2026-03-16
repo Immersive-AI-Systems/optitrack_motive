@@ -5,6 +5,9 @@ param(
     [string]$Branch = "main",
     [string]$CommitMessage = "camera calibration update",
     [string]$Room = "cork",
+    [ValidateSet("mcal", "natnet")]
+    [string]$CalibrationSource = "mcal",
+    [string]$McalPath = "C:\ProgramData\OptiTrack\Motive\System Calibration.mcal",
     [string]$ServerIp = "",
     [switch]$NoMulticast
 )
@@ -97,17 +100,25 @@ try {
             $env:PYTHONPATH = "$RepoPath;$($env:PYTHONPATH)"
         }
 
-        $cmd = @("scripts/update_calib.py", "--room", $Room)
-        if ($ServerIp) {
-            $cmd += @("--server-ip", $ServerIp)
+        if ($CalibrationSource -eq "mcal") {
+            $cmd = @("scripts/update_calib_from_mcal.py", "--room", $Room, "--mcal-path", $McalPath)
+            if ($ServerIp) {
+                $cmd += @("--server-ip", $ServerIp)
+            }
         }
-        if ($NoMulticast) {
-            $cmd += "--no-multicast"
+        else {
+            $cmd = @("scripts/update_calib.py", "--room", $Room)
+            if ($ServerIp) {
+                $cmd += @("--server-ip", $ServerIp)
+            }
+            if ($NoMulticast) {
+                $cmd += "--no-multicast"
+            }
         }
 
         & python @cmd
         if ($LASTEXITCODE -ne 0) {
-            throw "update_calib.py failed with exit code $LASTEXITCODE"
+            throw "$($cmd[0]) failed with exit code $LASTEXITCODE"
         }
     }
 
