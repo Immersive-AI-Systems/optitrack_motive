@@ -236,9 +236,10 @@ if first:
     print(first["serial"], first["position"], first["orientation"])
 ```
 
-When the `.mcal` path is used, each camera entry still includes `serial`, `position`, and
-`orientation`, plus richer sections such as `properties`, `attributes`, `intrinsic`,
-`intrinsic_standard_camera_model`, `extrinsic`, filter settings, and the full `raw_mcal`
+When the `.mcal` path is used, the top-level `cameras` list keeps the old compact schema
+(`name`, `serial`, `position`, `orientation`) for compatibility. The richer `.mcal`
+content is stored separately under `latest["mcal"]`, including camera properties,
+attributes, intrinsics, extrinsics, filter settings, mask data, and the full `raw_mcal`
 tree for fields not yet normalized.
 
 ## Recording and Playback
