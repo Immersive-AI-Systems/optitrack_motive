@@ -66,6 +66,55 @@ function Initialize-Conda {
     Write-Host "Conda env active: $CondaEnv"
 }
 
+function Get-GitStatusLines {
+    $status = & git status --porcelain=v1
+    if ($LASTEXITCODE -ne 0) {
+        throw "git status --porcelain=v1 failed with exit code $LASTEXITCODE"
+    }
+
+    return @($status | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+}
+
+function Assert-WorkingTreeReady {
+    $statusLines = Get-GitStatusLines
+    if (-not $statusLines) {
+        return
+    }
+
+    $trackedChanges = @($statusLines | Where-Object { -not $_.StartsWith("?? ") })
+    if ($trackedChanges.Count -gt 0) {
+        $details = $trackedChanges -join "`n"
+        throw "Working tree has tracked git changes. Commit/stash/reset them before running this script:`n$details"
+    }
+
+    $untrackedChanges = @($statusLines | Where-Object { $_.StartsWith("?? ") })
+    if ($untrackedChanges.Count -gt 0) {
+        Write-Warning "Continuing with untracked files present:`n$($untrackedChanges -join "`n")"
+    }
+}
+
+function Assert-LiveMcalSourceReady {
+    $liveMcalPath = "C:\ProgramData\OptiTrack\Motive\System Calibration.mcal"
+    if ($CalibrationSource -ne "mcal" -or $McalPath -ne $liveMcalPath) {
+        return
+    }
+
+    $motiveProcess = Get-Process -Name "Motive" -ErrorAction SilentlyContinue
+    if ($motiveProcess) {
+        return
+    }
+
+    throw @"
+Motive is not running.
+Start Motive on this machine and then run the shortcut again.
+
+This shortcut reads the live calibration from:
+$McalPath
+"@
+}
+
+$capturedFailure = $null
+
 Push-Location $RepoPath
 try {
     Invoke-Step "Preflight" {
@@ -73,13 +122,8 @@ try {
             throw "RepoPath is not a git repository: $RepoPath"
         }
 
-        $dirty = git status --porcelain
-        if ($LASTEXITCODE -ne 0) {
-            throw "git status failed with exit code $LASTEXITCODE"
-        }
-        if ($dirty) {
-            throw "Working tree is not clean. Commit/stash changes before running this script."
-        }
+        Assert-LiveMcalSourceReady
+        Assert-WorkingTreeReady
     }
 
     Invoke-Step "Activate conda environment" {
@@ -139,6 +183,17 @@ try {
         Write-Host "Push complete."
     }
 }
+catch {
+    $capturedFailure = $_
+}
 finally {
     Pop-Location
+}
+
+if ($capturedFailure) {
+    Write-Host ""
+    Write-Host "Calibration save failed:" -ForegroundColor Red
+    Write-Host $capturedFailure.Exception.Message -ForegroundColor Red
+
+    exit 1
 }

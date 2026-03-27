@@ -198,10 +198,19 @@ Windows runner (conda env + pull + update + conditional commit/push):
 powershell -ExecutionPolicy Bypass -File scripts/update_calib_windows.ps1 -CondaEnv rtd
 ```
 
+Desktop/shortcut-friendly wrapper that keeps the window open on failure:
+
+```cmd
+scripts\run_update_calib_windows.cmd -CondaEnv rtd
+```
+
+When you use the default live Motive `.mcal` path, Motive must already be running.
+The wrapper leaves the shell open and the runner prints a clear error if Motive is not open.
+
 From another machine via SSH to `Admin@kyushu`:
 
 ```bash
-ssh Admin@kyushu 'powershell -NoProfile -ExecutionPolicy Bypass -File "$HOME\git\optitrack_motive\scripts\update_calib_windows.ps1" -CondaEnv rtd'
+ssh Admin@kyushu 'powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\Admin\git\optitrack_motive\scripts\update_calib_windows.ps1" -CondaEnv rtd'
 ```
 
 The Windows runner now defaults to the richer local `.mcal` source at
