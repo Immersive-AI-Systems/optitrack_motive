@@ -10,6 +10,19 @@ from typing import Any, Dict, List, Tuple
 
 from .streaming.NatNetClient import NatNetClient
 
+_NATNET_COMMAND_PORT = 1510
+_NATNET_DATA_PORT = 1511
+
+_VIDEO_MODE_NAMES = {
+    0: "Segment",
+    1: "Grayscale",
+    2: "Object",
+    4: "Precision",
+    6: "MJPEG",
+    9: "ColorH264",
+    11: "Duplex",
+}
+
 
 def resolve_client_ip(server_ip: str, requested: str = "auto") -> str:
     """Determine the appropriate client IP for NatNet streaming."""
@@ -21,7 +34,7 @@ def resolve_client_ip(server_ip: str, requested: str = "auto") -> str:
 
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.connect((server_ip, 1511))
+            sock.connect((server_ip, _NATNET_DATA_PORT))
             return sock.getsockname()[0]
     except OSError:
         # Fall back to binding all interfaces if detection fails.
@@ -114,3 +127,117 @@ def fetch_camera_descriptions(
     finally:
         client.data_description_listener = None
         client.shutdown()
+
+
+def _nat_connect_packet() -> bytes:
+    handshake = [0] * 270
+    handshake[0:4] = [80, 105, 110, 103]  # "Ping"
+    handshake[264:269] = [0, 4, 2, 0, 0]
+    payload = bytes(handshake) + b"\0"
+    return (
+        NatNetClient.NAT_CONNECT.to_bytes(2, byteorder="little", signed=True)
+        + len(handshake).to_bytes(2, byteorder="little", signed=True)
+        + payload
+    )
+
+
+def _nat_request_packet(command: str) -> bytes:
+    payload = command.encode("utf-8") + b"\0"
+    return (
+        NatNetClient.NAT_REQUEST.to_bytes(2, byteorder="little", signed=True)
+        + len(command).to_bytes(2, byteorder="little", signed=True)
+        + payload
+    )
+
+
+def _recv_nat_packet(sock: socket.socket) -> Tuple[int, bytes]:
+    data, _ = sock.recvfrom(65535)
+    message_id = int.from_bytes(data[0:2], byteorder="little", signed=True)
+    packet_size = int.from_bytes(data[2:4], byteorder="little", signed=True)
+    payload = bytes(data[4:4 + packet_size])
+    return message_id, payload
+
+
+def _open_natnet_command_socket(server_ip: str, client_ip: str, timeout: float) -> socket.socket:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout)
+    sock.bind((client_ip, 0))
+    sock.sendto(_nat_connect_packet(), (server_ip, _NATNET_COMMAND_PORT))
+
+    message_id, _ = _recv_nat_packet(sock)
+    if message_id != NatNetClient.NAT_SERVERINFO:
+        sock.close()
+        raise RuntimeError(f"Unexpected NatNet connect response: {message_id}")
+
+    return sock
+
+
+def _request_motive_text(sock: socket.socket, server_ip: str, command: str) -> str:
+    sock.sendto(_nat_request_packet(command), (server_ip, _NATNET_COMMAND_PORT))
+    message_id, payload = _recv_nat_packet(sock)
+
+    if message_id == NatNetClient.NAT_UNRECOGNIZED_REQUEST:
+        raise RuntimeError(f"Motive did not recognize NatNet command: {command}")
+
+    if message_id not in {NatNetClient.NAT_RESPONSE, NatNetClient.NAT_MESSAGESTRING}:
+        raise RuntimeError(f"Unexpected NatNet response {message_id} for command: {command}")
+
+    text = payload.rstrip(b"\0").decode("utf-8", errors="replace")
+    if text:
+        return text
+
+    if len(payload) == 4:
+        return str(int.from_bytes(payload, byteorder="little", signed=True))
+
+    return ""
+
+
+def _parse_bool_text(value: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized == "true":
+        return True
+    if normalized == "false":
+        return False
+    raise ValueError(f"Expected boolean text, got {value!r}")
+
+
+def fetch_camera_statuses(
+    server_ip: str,
+    client_ip: str = "auto",
+    timeout: float = 8.0,
+    use_multicast: bool = True,
+) -> Dict[str, Any]:
+    """Query live Motive camera status and video mode via NatNet remote properties."""
+    cameras_raw, resolved_client_ip = fetch_camera_descriptions(
+        server_ip,
+        client_ip,
+        timeout=timeout,
+        verbose=False,
+        use_multicast=use_multicast,
+    )
+
+    cameras_by_name: Dict[str, Dict[str, Any]] = {}
+
+    with _open_natnet_command_socket(server_ip, resolved_client_ip, timeout) as sock:
+        for camera in cameras_raw:
+            name = str(camera["name"])
+            video_mode_text = _request_motive_text(sock, server_ip, f"GetProperty,{name},Video Mode")
+            enabled_text = _request_motive_text(sock, server_ip, f"GetProperty,{name},Enabled")
+            reconstruction_text = _request_motive_text(sock, server_ip, f"GetProperty,{name},Reconstruction")
+
+            video_mode = int(video_mode_text)
+
+            camera_status = dict(camera)
+            camera_status["enabled"] = _parse_bool_text(enabled_text)
+            camera_status["reconstruction_enabled"] = _parse_bool_text(reconstruction_text)
+            camera_status["video_mode"] = video_mode
+            camera_status["video_mode_name"] = _VIDEO_MODE_NAMES.get(video_mode, f"Unknown({video_mode})")
+            camera_status["duplex"] = video_mode == 11
+            cameras_by_name[name] = camera_status
+
+    return {
+        "server_ip": server_ip,
+        "client_ip": resolved_client_ip,
+        "camera_count": len(cameras_by_name),
+        "cameras": cameras_by_name,
+    }
