@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import socket
+import struct
 import re
 import threading
 import time
@@ -21,6 +22,11 @@ _VIDEO_MODE_NAMES = {
     6: "MJPEG",
     9: "ColorH264",
     11: "Duplex",
+}
+
+_MODE_NAMES = {
+    0: "Live",
+    1: "Edit",
 }
 
 
@@ -172,7 +178,7 @@ def _open_natnet_command_socket(server_ip: str, client_ip: str, timeout: float) 
     return sock
 
 
-def _request_motive_text(sock: socket.socket, server_ip: str, command: str) -> str:
+def _request_motive_payload(sock: socket.socket, server_ip: str, command: str) -> bytes:
     sock.sendto(_nat_request_packet(command), (server_ip, _NATNET_COMMAND_PORT))
     message_id, payload = _recv_nat_packet(sock)
 
@@ -182,14 +188,51 @@ def _request_motive_text(sock: socket.socket, server_ip: str, command: str) -> s
     if message_id not in {NatNetClient.NAT_RESPONSE, NatNetClient.NAT_MESSAGESTRING}:
         raise RuntimeError(f"Unexpected NatNet response {message_id} for command: {command}")
 
-    text = payload.rstrip(b"\0").decode("utf-8", errors="replace")
-    if text:
+    return payload
+
+
+def _payload_ascii_text(payload: bytes) -> str | None:
+    stripped = payload.rstrip(b"\0")
+    if not stripped:
+        return ""
+
+    if all(32 <= byte <= 126 for byte in stripped):
+        return stripped.decode("ascii")
+
+    return None
+
+
+def _request_motive_text(sock: socket.socket, server_ip: str, command: str) -> str:
+    payload = _request_motive_payload(sock, server_ip, command)
+
+    text = _payload_ascii_text(payload)
+    if text is not None and text != "":
         return text
 
     if len(payload) == 4:
         return str(int.from_bytes(payload, byteorder="little", signed=True))
 
+    if text == "":
+        return text
+
     return ""
+
+
+def _request_motive_int(sock: socket.socket, server_ip: str, command: str) -> int:
+    return int(_request_motive_text(sock, server_ip, command))
+
+
+def _request_motive_float(sock: socket.socket, server_ip: str, command: str) -> float:
+    payload = _request_motive_payload(sock, server_ip, command)
+
+    if len(payload) == 4:
+        return float(struct.unpack("<f", payload)[0])
+
+    text = _payload_ascii_text(payload)
+    if text is not None and text != "":
+        return float(text)
+
+    raise ValueError(f"Expected float response, got payload {payload!r}")
 
 
 def _parse_bool_text(value: str) -> bool:
@@ -240,4 +283,37 @@ def fetch_camera_statuses(
         "client_ip": resolved_client_ip,
         "camera_count": len(cameras_by_name),
         "cameras": cameras_by_name,
+    }
+
+
+def fetch_recording_status(
+    server_ip: str,
+    client_ip: str = "auto",
+    timeout: float = 8.0,
+    sample_seconds: float = 1.0,
+) -> Dict[str, Any]:
+    """Infer whether Motive is actively recording by sampling live take length."""
+    resolved_client_ip = resolve_client_ip(server_ip, client_ip)
+
+    with _open_natnet_command_socket(server_ip, resolved_client_ip, timeout) as sock:
+        current_mode = _request_motive_int(sock, server_ip, "CurrentMode")
+        frame_rate = _request_motive_float(sock, server_ip, "FrameRate")
+        take_length_start = _request_motive_int(sock, server_ip, "CurrentTakeLength")
+        time.sleep(max(sample_seconds, 0.0))
+        take_length_end = _request_motive_int(sock, server_ip, "CurrentTakeLength")
+
+    delta_frames = take_length_end - take_length_start
+    recording = current_mode == 0 and delta_frames > 0
+
+    return {
+        "server_ip": server_ip,
+        "client_ip": resolved_client_ip,
+        "current_mode": current_mode,
+        "current_mode_name": _MODE_NAMES.get(current_mode, f"Unknown({current_mode})"),
+        "frame_rate": frame_rate,
+        "sample_seconds": max(sample_seconds, 0.0),
+        "current_take_length_start": take_length_start,
+        "current_take_length_end": take_length_end,
+        "delta_frames": delta_frames,
+        "recording": recording,
     }
