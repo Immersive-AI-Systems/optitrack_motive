@@ -4,7 +4,40 @@ import math
 import time
 import threading
 import sys
-import lunar_tools as lt
+try:
+    import lunar_tools as lt
+except ImportError:
+    class _SimpleBuffer:
+        def __init__(self, buffer_size=100, default_return_value=0):
+            self.buffer_size = buffer_size
+            self.default_return_value = default_return_value
+            self.buffer = []
+
+        def append(self, value):
+            self.buffer.append(value)
+            if len(self.buffer) > self.buffer_size:
+                self.buffer.pop(0)
+
+        def get_last(self):
+            if not self.buffer:
+                return self.default_return_value
+            return self.buffer[-1]
+
+        def __len__(self):
+            return len(self.buffer)
+
+        def __getitem__(self, index):
+            return self.buffer[index]
+
+    class _NumpyArrayBuffer(_SimpleBuffer):
+        def append(self, value):
+            super().append(np.array(value))
+
+    class _BufferModule:
+        SimpleNumberBuffer = _SimpleBuffer
+        NumpyArrayBuffer = _NumpyArrayBuffer
+
+    lt = _BufferModule()
 
 class RigidBody:
     def __init__(self, motive_receiver, label):
@@ -40,9 +73,9 @@ class RigidBody:
     def update(self):
         rigid_bodies_data = self.motive_receiver.get_last("rigid_bodies_full")
         if rigid_bodies_data is None:
-            return
+            return False
         if self.label not in rigid_bodies_data:
-            return
+            return False
         body_data = rigid_bodies_data[self.label]
         self.t_last = self.t_current
         self.t_current = self.motive_receiver.get_last_timestamp()
@@ -50,7 +83,7 @@ class RigidBody:
         if dt == 0:
             # print("WARNING! dt between packages is zero!! returning...")
             # there is nothing to do. return!
-            return
+            return False
         self.dt.append(dt)
         position = np.array(body_data["pos"])
         self.positions.append(position)
@@ -68,7 +101,7 @@ class RigidBody:
             self.angular_velocities.append(angular_velocity)
 
         if len(self.positions.buffer) <= 2:
-            return
+            return True
         
         if len(self.positions.buffer) >= 2:
             v_current = (self.positions.buffer[-1] - self.positions.buffer[-2]) / dt
@@ -76,6 +109,22 @@ class RigidBody:
 
         self.get_xz_fract()
         self.get_xyz_fract()
+        return True
+
+    def has_data(self):
+        return len(self.positions.buffer) > 0
+
+    def get_position(self):
+        self.update()
+        return self.positions.get_last()
+
+    def get_rotation(self):
+        self.update()
+        return self.orientations.get_last()
+
+    def get_velocity(self):
+        self.update()
+        return self.velocities.get_last()
 
 
     def get_xz_fract(self):

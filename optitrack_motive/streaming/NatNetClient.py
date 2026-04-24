@@ -71,7 +71,7 @@ class NatNetClient:
     # print_level = 0 off
     # print_level = 1 on
     # print_level = >1 on / print every nth mocap frame
-    print_level = 20
+    print_level = 0
 
     def __init__(self):
         # Change this value to the IP address of the NatNet server.
@@ -2090,9 +2090,9 @@ class NatNetClient:
 
             offset_tmp, mocap_data = self.__unpack_mocap_data(data[offset:], packet_size, major, minor) #type: ignore  # noqa E501
             offset += offset_tmp
-            self._log("MoCap Frame: %d\n" % (mocap_data.prefix_data.frame_number))
             # get a string version of the data for output
             if print_level >= 1:
+                self._log("MoCap Frame: %d\n" % (mocap_data.prefix_data.frame_number))
                 mocap_data_str = mocap_data.get_as_string()
                 self._log(" %s\n" % mocap_data_str)
 
@@ -2107,10 +2107,10 @@ class NatNetClient:
                     self.data_description_listener(data_descs)
                 except Exception as exc:
                     self._log(f"ERROR: data_description_listener failed: {exc}")
-            self._log("Data Descriptions:\n")
             # get a string version of the data for output
             data_descs_str = data_descs.get_as_string()
             if print_level > 0:
+                self._log("Data Descriptions:\n")
                 self._log(" %s\n" % (data_descs_str))
 
         elif message_id == self.NAT_SERVERINFO:

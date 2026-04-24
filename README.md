@@ -47,16 +47,38 @@ Basic example showing how to connect and receive all motion capture data:
 python examples/hello_streaming_client.py
 ```
 
+
+### Native NatNet SampleClient
+The tracked `examples/SampleClient` binary is refreshed from OptiTrack's official NatNet SDK 4.4.0 Ubuntu package and embeds `RUNPATH=$ORIGIN/../NatNet_SDK_4.4/lib`. On Tenerife, keep the SDK extracted at `~/git/optitrack_motive/NatNet_SDK_4.4` and run:
+```bash
+cd ~/git/optitrack_motive && ./examples/SampleClient 10.40.49.47
+```
+
+Official SDK source used for the refresh: `NatNet_SDK_4.4_ubuntu.tar`; the Windows ZIP has the same SampleClient/Python sources after CRLF normalization, plus extra Windows-only samples.
+
 ### Rigid Body Tracking
 
 #### `print_rigid_body.py`
-Track a specific rigid body with optional pygame visualization:
+Track a specific rigid body in the terminal, or let the script auto-select the first visible rigid body:
 ```bash
-# Track rigid body "A" with visualization
-python examples/print_rigid_body.py -n A -s 10.40.49.47 -p
+# Auto-select the first visible rigid body
+python examples/print_rigid_body.py -s 10.40.49.47
 
-# Track without visualization
-python examples/print_rigid_body.py -n A --no-pygame
+# Track rigid body "left"
+python examples/print_rigid_body.py -n left -s 10.40.49.47 --max-frames 20
+
+# Optional pygame visualization
+python examples/print_rigid_body.py -n left -s 10.40.49.47 --pygame
+```
+
+#### `print_markers.py`
+Print marker-set, labeled-marker, and unlabeled-marker positions:
+```bash
+# Print one frame of all marker positions
+python examples/print_markers.py -s 10.40.49.47
+
+# Print five marker frames
+python examples/print_markers.py -s 10.40.49.47 --max-frames 5
 ```
 
 ### Protocol Integration
@@ -98,6 +120,12 @@ timestamp = motive.get_last_timestamp()
 
 # Access rigid bodies by model name
 rigid_body_data = motive.get_last_by_model("rigid_bodies_full", "MyRigidBody")
+
+# Access marker data from the latest frame
+rigid_body_names = motive.get_rigid_body_names()
+marker_sets = motive.get_marker_sets()
+labeled_markers = motive.get_labeled_markers()
+unlabeled_markers = motive.get_unlabeled_markers()
 ```
 
 ### RigidBody
@@ -108,7 +136,7 @@ from optitrack_motive.rigid_body import RigidBody
 from optitrack_motive.motive_receiver import MotiveReceiver
 
 motive = MotiveReceiver(server_ip="10.40.49.47")
-rb = RigidBody(motive, "A")  # Track rigid body named "A"
+rb = RigidBody(motive, "left")  # Track rigid body named "left"
 
 # Get position and orientation
 position = rb.get_position()  # [x, y, z]

@@ -8,8 +8,11 @@ import argparse
 import json
 import hashlib
 import time
+import sys
 from pathlib import Path
 from typing import Any, Dict, List
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from optitrack_motive.motive_stream import fetch_camera_descriptions
 from optitrack_motive.presets import load_room

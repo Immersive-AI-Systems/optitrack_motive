@@ -2,6 +2,10 @@
 import time
 import sys # Added for sys.stdout.flush()
 import argparse # Added for command-line arguments
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from optitrack_motive.streaming.NatNetClient import NatNetClient
 
 last_frame_number = -1

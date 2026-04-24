@@ -1,6 +1,13 @@
 # Make streaming package available
 from . import streaming
 
+from .motive_receiver import (  # noqa: F401
+    MotiveReceiver,
+    decode_marker_id,
+    decode_marker_params,
+)
+from .rigid_body import RigidBody  # noqa: F401
+
 # Convenience helpers
 from .motive_stream import (  # noqa: F401
     fetch_camera_descriptions,
