@@ -17,6 +17,27 @@ A modern Python client library for OptiTrack's NatNet streaming protocol, enabli
 pip install git+https://github.com/Immersive-AI-Systems/optitrack_motive.git
 ```
 
+### Required SSH Setup for Calibration Fetch
+
+Run this once on every computer that needs to fetch live Motive calibration
+from the Windows Motive PC:
+
+```bash
+bash scripts/setup_windows_ssh_key.sh Admin kyushu
+```
+
+This is required before automatic calibration fetches can work. The `cork`
+room calibration source lives on `Admin@kyushu` at
+`C:\ProgramData\OptiTrack\Motive\System Calibration.mcal`, and
+`python scripts/fetch_calib.py --room cork` reads that file over SSH.
+
+The setup script behaves like a project-specific `ssh-copy-id`: it creates a
+fresh OptiTrack Motive SSH key under `~/.ssh`, installs the public key on the
+Windows host, and updates a managed `~/.ssh/config` block so normal
+`ssh Admin@kyushu` and calibration-fetch commands use that key. Without
+`SSH_PASSWORD`, it lets OpenSSH prompt for the Windows password; using
+`SSH_PASSWORD=...` for non-interactive setup requires `expect`.
+
 ### Dependencies
 - Python 3.10+
 - numpy
@@ -231,18 +252,8 @@ calibration does not fall back to YAML/default intrinsics. Auxiliary cameras
 remain in the parsed `.mcal` tree even when they are not selected for pose
 geometry.
 
-Before fetching calibration from a new computer, install a fresh local SSH key
-on the Windows Motive PC:
-
-```bash
-bash scripts/setup_windows_ssh_key.sh Admin kyushu
-```
-
-The setup script creates a new project-specific key under `~/.ssh`, installs
-the public key on the Windows host, and updates a managed `~/.ssh/config` block
-so normal `ssh Admin@kyushu` and calibration-fetch commands use that key.
-Without `SSH_PASSWORD`, it lets OpenSSH prompt for the Windows password; using
-`SSH_PASSWORD=...` for non-interactive setup requires `expect`.
+If calibration fetch fails with an SSH authentication error on a new machine,
+run the required SSH setup command from the installation section first.
 
 Default saved snapshots use:
 
