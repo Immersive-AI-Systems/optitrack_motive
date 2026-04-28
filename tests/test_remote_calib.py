@@ -5,6 +5,7 @@ import hashlib
 import json
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -20,6 +21,7 @@ from optitrack_motive.calib.remote import (
     fetch_remote_mcal_bytes,
     save_snapshot,
     write_raw_mcal_from_snapshot,
+    _snapshot_stamp,
 )
 
 
@@ -150,6 +152,9 @@ class RemoteCalibTests(unittest.TestCase):
 
         self.assertEqual(bundle.payload["source"]["sha256"], hashlib.sha256(raw).hexdigest())
         self.assertEqual(bundle.payload["mcal"]["camera_count"], 1)
+
+    def test_snapshot_stamp_uses_local_wall_clock_time(self) -> None:
+        self.assertEqual(_snapshot_stamp(datetime(2026, 4, 28, 15, 32, 5)), "260428_153205")
 
     def test_save_snapshot_writes_one_json_with_extractable_raw_mcal(self) -> None:
         raw = _sample_bytes()

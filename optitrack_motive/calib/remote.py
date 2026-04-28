@@ -41,8 +41,11 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _snapshot_stamp() -> str:
-    return time.strftime("%y%m%d_%H%M%S", time.gmtime())
+def _snapshot_stamp(now: Optional[datetime] = None) -> str:
+    current = now if now is not None else datetime.now().astimezone()
+    if current.tzinfo is not None:
+        current = current.astimezone()
+    return current.strftime("%y%m%d_%H%M%S")
 
 
 def _repo_root() -> Path:
