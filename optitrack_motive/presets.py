@@ -19,6 +19,10 @@ CONNECTION_FIELDS = {
 class RoomPreset:
     name: str
     connection: Dict[str, object]
+    calibration: Dict[str, object]
+    camera_stream: Dict[str, object]
+    pose_defaults: Dict[str, object]
+    cameras: List[Dict[str, object]]
 
 
 _RESOURCE_STACK = ExitStack()
@@ -88,10 +92,22 @@ def load_room(
     room_label = raw_room.get("room", room_name)
     defaults = raw_room.get("default", {})
     connection = raw_room.get("connection", {})
+    calibration = raw_room.get("calibration", {})
+    camera_stream = raw_room.get("camera_stream", {})
+    pose_defaults = raw_room.get("pose_defaults", {})
+    cameras = raw_room.get("cameras", [])
     if not isinstance(defaults, dict):
         defaults = {}
     if not isinstance(connection, dict):
         connection = {}
+    if not isinstance(calibration, dict):
+        calibration = {}
+    if not isinstance(camera_stream, dict):
+        camera_stream = {}
+    if not isinstance(pose_defaults, dict):
+        pose_defaults = {}
+    if not isinstance(cameras, list):
+        cameras = []
 
     merged_connection = {k: v for k, v in defaults.items() if k in CONNECTION_FIELDS}
     merged_connection.update({k: v for k, v in connection.items() if k in CONNECTION_FIELDS})
@@ -105,4 +121,8 @@ def load_room(
     return RoomPreset(
         name=room_label,
         connection=merged_connection,
+        calibration=dict(calibration),
+        camera_stream=dict(camera_stream),
+        pose_defaults=dict(pose_defaults),
+        cameras=[dict(camera) for camera in cameras if isinstance(camera, dict)],
     )

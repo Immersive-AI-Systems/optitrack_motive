@@ -8,6 +8,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 import datetime as _dt
 
+from .remote import (  # noqa: F401
+    CalibrationBundle,
+    extract_raw_mcal_bytes,
+    extract_raw_mcal_from_snapshot,
+    fetch_latest,
+    write_raw_mcal_from_snapshot,
+)
+
 
 def _calib_root() -> Path:
     return resources.files(__package__)  # type: ignore[return-value]
@@ -20,15 +28,23 @@ def _latest_filename(room: Optional[str]) -> str:
 
 
 def _parse_calib_timestamp(name: str, room: Optional[str]) -> Optional[_dt.datetime]:
-    """Parse YYMMDD_HHMM timestamp from a calibration filename."""
+    """Parse YYMMDD_HHMM or YYMMDD_HHMMSS timestamp from a calibration filename."""
     prefix = f"{room}_" if room else "calib_"
     if not name.startswith(prefix) or not name.endswith(".json"):
         return None
     token = name[len(prefix):-5]
-    try:
-        return _dt.datetime.strptime(token, "%y%m%d_%H%M")
-    except ValueError:
-        return None
+    if len(token) == len("260428_081800"):
+        formats = ("%y%m%d_%H%M%S",)
+    elif len(token) == len("260428_0818"):
+        formats = ("%y%m%d_%H%M",)
+    else:
+        formats = ()
+    for fmt in formats:
+        try:
+            return _dt.datetime.strptime(token, fmt)
+        except ValueError:
+            continue
+    return None
 
 
 def list_calibs(room: Optional[str] = None) -> List[Path]:
@@ -94,13 +110,19 @@ def find_calib_at_or_before(
     """Return the calibration file at or before the given date/time.
 
     The target can be a datetime or a string in YYYY-MM-DD, YYYY-MM-DDTHH:MM,
-    or YYMMDD_HHMM format. The match uses local time for parsing strings.
+    YYMMDD_HHMM, or YYMMDD_HHMMSS format. The match uses local time for parsing
+    strings.
     """
     if isinstance(target, _dt.datetime):
         target_dt = target
     else:
         text = target.strip()
-        for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M", "%y%m%d_%H%M"):
+        formats = ["%Y-%m-%d", "%Y-%m-%dT%H:%M"]
+        if len(text) == len("260428_081800"):
+            formats.append("%y%m%d_%H%M%S")
+        elif len(text) == len("260428_0818"):
+            formats.append("%y%m%d_%H%M")
+        for fmt in formats:
             try:
                 target_dt = _dt.datetime.strptime(text, fmt)
                 break
@@ -108,7 +130,8 @@ def find_calib_at_or_before(
                 target_dt = None
         if target_dt is None:
             raise ValueError(
-                "Unsupported date format. Use YYYY-MM-DD, YYYY-MM-DDTHH:MM, or YYMMDD_HHMM."
+                "Unsupported date format. Use YYYY-MM-DD, YYYY-MM-DDTHH:MM, YYMMDD_HHMM, "
+                "or YYMMDD_HHMMSS."
             )
 
     candidates: List[Tuple[_dt.datetime, Path]] = []

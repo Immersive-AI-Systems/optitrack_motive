@@ -6,10 +6,31 @@ import re
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Union
 
 
 PathLike = Union[str, Path]
+
+PRIMEX_22 = "PrimeX 22"
+PRIMEX_13W = "PrimeX 13W"
+PRIME_COLOR_FS = "Prime Color-FS"
+
+PRIMEX_22_SERIALS = {
+    103517,
+    103518,
+    103519,
+    103520,
+    103521,
+    103522,
+    109641,
+    109642,
+}
+PRIMEX_13W_SERIALS = {108490, 108496}
+PRIME_COLOR_FS_SERIALS = {11679, 11680, 11681}
+
+
+class McalValidationError(ValueError):
+    """Raised when strict normalized calibration data cannot be built."""
 
 
 def _float_attr(attrs: Dict[str, str], key: str, default: float = 0.0) -> float:
@@ -17,6 +38,50 @@ def _float_attr(attrs: Dict[str, str], key: str, default: float = 0.0) -> float:
     if value is None:
         return default
     return float(value)
+
+
+def _required_float(attrs: Dict[str, Any], key: str, label: str) -> float:
+    value = attrs.get(key)
+    if value in (None, ""):
+        raise McalValidationError(f"{label} missing required field {key!r}")
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise McalValidationError(f"{label} has invalid float field {key!r}: {value!r}") from exc
+
+
+def _required_int(attrs: Dict[str, Any], key: str, label: str) -> int:
+    value = attrs.get(key)
+    if value in (None, ""):
+        raise McalValidationError(f"{label} missing required field {key!r}")
+    try:
+        return int(float(value))
+    except (TypeError, ValueError) as exc:
+        raise McalValidationError(f"{label} has invalid integer field {key!r}: {value!r}") from exc
+
+
+def _optional_int(attrs: Dict[str, Any], key: str) -> Optional[int]:
+    value = attrs.get(key)
+    if value in (None, ""):
+        return None
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _optional_bool(attrs: Dict[str, Any], key: str) -> Optional[bool]:
+    value = attrs.get(key)
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes"}:
+        return True
+    if text in {"0", "false", "no"}:
+        return False
+    return None
 
 
 def _matrix_to_quaternion(values: Iterable[float]) -> List[float]:
@@ -56,6 +121,26 @@ def _matrix_to_quaternion(values: Iterable[float]) -> List[float]:
         z = 0.25 * s
 
     return [float(x), float(y), float(z), float(w)]
+
+
+def infer_camera_model(serial: Optional[int], name: str = "", token_prefix: Optional[str] = None) -> Optional[str]:
+    """Infer the camera model from known Cork serials and Motive camera labels."""
+
+    prefix = (token_prefix or "").upper() or None
+    name_lower = str(name or "").lower()
+    if (
+        "prime color-fs" in name_lower
+        or prefix == "C"
+        or (serial is not None and int(serial) in PRIME_COLOR_FS_SERIALS)
+    ):
+        return PRIME_COLOR_FS
+    if "primex 13w" in name_lower or (serial is not None and int(serial) in PRIMEX_13W_SERIALS):
+        return PRIMEX_13W
+    if "primex 22" in name_lower or (serial is not None and int(serial) in PRIMEX_22_SERIALS):
+        return PRIMEX_22
+    if prefix == "M":
+        return PRIMEX_22
+    return None
 
 
 def _element_to_tree(element: ET.Element) -> Dict[str, Any]:
@@ -122,6 +207,7 @@ def _parse_camera(camera: ET.Element) -> Dict[str, Any]:
     orientation = _matrix_to_quaternion(orientation_matrix) if len(orientation_matrix) == 9 else []
 
     return {
+        "tag": camera.tag,
         "name": serial_label or f"Camera {properties.get('CameraID', '')}".strip(),
         "serial": serial_number,
         "serial_label": serial_label,
@@ -140,14 +226,10 @@ def _parse_camera(camera: ET.Element) -> Dict[str, Any]:
     }
 
 
-def parse_mcal(path: PathLike) -> Dict[str, Any]:
-    """Parse a Motive .mcal file into a rich JSON-friendly dict."""
-    path = Path(path)
-    root = ET.fromstring(path.read_text(encoding="utf-16"))
-
+def _parse_mcal_root(root: ET.Element, source_label: str) -> Dict[str, Any]:
     calibration = root.find("Calibration")
     if calibration is None:
-        raise ValueError(f"No Calibration node found in {path}")
+        raise ValueError(f"No Calibration node found in {source_label}")
 
     cameras_elem = calibration.find("Cameras")
     cameras = []
@@ -180,3 +262,115 @@ def parse_mcal(path: PathLike) -> Dict[str, Any]:
             "children": _element_to_tree(root),
         },
     }
+
+
+def parse_mcal_text(text: str, source_label: str = "<mcal text>") -> Dict[str, Any]:
+    """Parse Motive .mcal XML text into a rich JSON-friendly dict."""
+
+    return _parse_mcal_root(ET.fromstring(text), source_label)
+
+
+def parse_mcal_bytes(data: bytes, source_label: str = "<mcal bytes>") -> Dict[str, Any]:
+    """Parse raw Motive .mcal bytes into a rich JSON-friendly dict."""
+
+    return _parse_mcal_root(ET.fromstring(data), source_label)
+
+
+def parse_mcal(path: PathLike) -> Dict[str, Any]:
+    """Parse a Motive .mcal file into a rich JSON-friendly dict."""
+
+    path = Path(path)
+    return parse_mcal_bytes(path.read_bytes(), str(path))
+
+
+def normalize_camera_geometry(camera: Dict[str, Any]) -> Dict[str, Any]:
+    """Build a strict numeric geometry block for one parsed .mcal camera."""
+
+    serial = camera.get("serial")
+    label = f"camera {serial}" if serial is not None else f"camera {camera.get('name', '<unknown>')}"
+    if serial is None:
+        raise McalValidationError(f"{label} missing required serial")
+    try:
+        serial_int = int(serial)
+    except (TypeError, ValueError) as exc:
+        raise McalValidationError(f"{label} has invalid serial: {serial!r}") from exc
+
+    name = str(camera.get("name") or camera.get("serial_label") or f"Camera {serial_int}")
+    serial_label = str(camera.get("serial_label") or name)
+    prefix_match = re.match(r"([A-Za-z])", serial_label)
+    token_prefix = prefix_match.group(1) if prefix_match else None
+
+    position = [float(value) for value in camera.get("position", [])]
+    orientation = [float(value) for value in camera.get("orientation", [])]
+    orientation_matrix = [float(value) for value in camera.get("orientation_matrix", [])]
+    if len(position) != 3:
+        raise McalValidationError(f"{label} position must contain 3 values")
+    if len(orientation) != 4:
+        raise McalValidationError(f"{label} orientation must contain 4 values")
+    if len(orientation_matrix) != 9:
+        raise McalValidationError(f"{label} orientation_matrix must contain 9 values")
+
+    attributes = camera.get("attributes") or {}
+    properties = camera.get("properties") or {}
+    intrinsics = camera.get("intrinsic_standard_camera_model") or {}
+    if not isinstance(attributes, dict):
+        raise McalValidationError(f"{label} attributes must be a mapping")
+    if not isinstance(properties, dict):
+        raise McalValidationError(f"{label} properties must be a mapping")
+    if not isinstance(intrinsics, dict):
+        raise McalValidationError(f"{label} IntrinsicStandardCameraModel must be a mapping")
+
+    model = infer_camera_model(serial_int, name=name, token_prefix=token_prefix)
+    return {
+        "serial": serial_int,
+        "name": name,
+        "serial_label": serial_label,
+        "model": model,
+        "camera_id": _optional_int(properties, "CameraID"),
+        "enabled": _optional_bool(properties, "Enabled"),
+        "enabled_for_recording": _optional_bool(properties, "EnabledForRecording"),
+        "frame_rate": _optional_int(properties, "FrameRate"),
+        "video_type": _optional_int(properties, "VideoType"),
+        "image_width": _required_int(attributes, "ImagerPixelWidth", label),
+        "image_height": _required_int(attributes, "ImagerPixelHeight", label),
+        "fx": _required_float(intrinsics, "HorizontalFocalLength", label),
+        "fy": _required_float(intrinsics, "VerticalFocalLength", label),
+        "cx": _required_float(intrinsics, "LensCenterX", label),
+        "cy": _required_float(intrinsics, "LensCenterY", label),
+        "k1": _required_float(intrinsics, "k1", label),
+        "k2": _required_float(intrinsics, "k2", label),
+        "k3": _required_float(intrinsics, "k3", label),
+        "p1": _required_float(intrinsics, "TangentialX", label),
+        "p2": _required_float(intrinsics, "TangentialY", label),
+        "position": position,
+        "orientation": orientation,
+        "orientation_matrix": orientation_matrix,
+        "intrinsics_source": "IntrinsicStandardCameraModel",
+    }
+
+
+def normalize_camera_geometries(
+    parsed: Dict[str, Any],
+    *,
+    selected_serials: Optional[Iterable[int]] = None,
+) -> Dict[int, Dict[str, Any]]:
+    """Return strict numeric camera geometry keyed by serial number."""
+
+    selected: Optional[Set[int]] = None
+    if selected_serials is not None:
+        selected = {int(serial) for serial in selected_serials}
+    geometries: Dict[int, Dict[str, Any]] = {}
+    for camera in parsed.get("cameras", []):
+        if not isinstance(camera, dict):
+            raise McalValidationError(f"Expected camera mapping, got {type(camera).__name__}")
+        serial = camera.get("serial")
+        if selected is not None and serial is not None and int(serial) not in selected:
+            continue
+        geometry = normalize_camera_geometry(camera)
+        geometries[int(geometry["serial"])] = geometry
+    if selected is not None:
+        missing = selected.difference(geometries)
+        if missing:
+            missing_text = ", ".join(str(serial) for serial in sorted(missing))
+            raise McalValidationError(f"Selected camera serials missing from .mcal: {missing_text}")
+    return geometries

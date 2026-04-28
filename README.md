@@ -208,19 +208,42 @@ def process_frame(data_dict):
 ```
 
 ## Calibration
-Fetch and store camera calibration snapshots from Motive:
+Fetch the latest Motive `.mcal` calibration directly from the configured room host:
 
 ```bash
-python scripts/update_calib.py
+python scripts/fetch_calib.py --room cork
 ```
 
-Or ingest the full Motive `.mcal` calibration file:
+Save a complete archival snapshot as one self-contained JSON file. The JSON
+contains normalized calibration data, the full parsed `.mcal` tree, and the
+exact raw `.mcal` bytes embedded as checksum-verified base64:
+
+```bash
+python scripts/fetch_calib.py --room cork --save-snapshot
+```
+
+The `cork` room preset fetches
+`C:\ProgramData\OptiTrack\Motive\System Calibration.mcal` from `Admin@kyushu`
+over SSH. The parser preserves the full `.mcal` tree and also writes strict
+numeric `camera_geometry_by_serial` entries for the selected pose cameras,
+derived from Motive's `IntrinsicStandardCameraModel`; production `.mcal`
+calibration does not fall back to YAML/default intrinsics. Auxiliary cameras
+remain in the parsed `.mcal` tree even when they are not selected for pose
+geometry.
+
+You can still ingest a local `.mcal` calibration file:
 
 ```bash
 python scripts/update_calib_from_mcal.py --mcal-path "C:\ProgramData\OptiTrack\Motive\System Calibration.mcal"
 ```
 
-Windows runner (conda env + pull + update + conditional commit/push):
+Older NatNet-only camera description fetch:
+
+```bash
+python scripts/update_calib.py
+```
+
+Legacy Windows runner (conda env + pull + update + conditional commit/push):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/update_calib_windows.ps1 -CondaEnv rtd
