@@ -231,76 +231,34 @@ calibration does not fall back to YAML/default intrinsics. Auxiliary cameras
 remain in the parsed `.mcal` tree even when they are not selected for pose
 geometry.
 
-You can still ingest a local `.mcal` calibration file:
+Default saved snapshots use:
 
-```bash
-python scripts/update_calib_from_mcal.py --mcal-path "C:\ProgramData\OptiTrack\Motive\System Calibration.mcal"
-```
+`optitrack_motive/calib/<room>_YYMMDD_HHMMSS.json`
 
-Older NatNet-only camera description fetch:
+For old recordings, keep the historical calibration JSON files and copy the
+matching snapshot manually into the recording's `calib/` subfolder. Do not use
+the removed legacy save scripts for this.
 
-```bash
-python scripts/update_calib.py
-```
-
-Legacy Windows runner (conda env + pull + update + conditional commit/push):
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/update_calib_windows.ps1 -CondaEnv rtd
-```
-
-Desktop/shortcut-friendly wrapper that keeps the window open on failure:
-
-```cmd
-scripts\run_update_calib_windows.cmd -CondaEnv rtd
-```
-
-When you use the default live Motive `.mcal` path, Motive must already be running.
-The wrapper leaves the shell open and the runner prints a clear error if Motive is not open.
-
-From another machine via SSH to `Admin@kyushu`:
-
-```bash
-ssh Admin@kyushu 'powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\Admin\git\optitrack_motive\scripts\update_calib_windows.ps1" -CondaEnv rtd'
-```
-
-The Windows runner now defaults to the richer local `.mcal` source at
-`C:\ProgramData\OptiTrack\Motive\System Calibration.mcal`. Use
-`-CalibrationSource natnet` if you want the older NatNet-only fetch path.
-
-Defaults to room `cork`. Snapshots are saved as:
-
-`optitrack_motive/calib/<room>_YYMMDD_HHMM.json`
-
-The latest calibration is inferred from the newest snapshot. If the calibration payload is
-identical to the previous snapshot, the script skips saving and reports no changes.
-
-Load and query calibrations:
+Load the packaged latest calibration:
 
 ```python
 from optitrack_motive import calib
 
-# Latest calibration for a room
 latest = calib.load_latest(room="cork")
-
-# List all calibration files
-all_calibs = calib.list_calibs(room="cork")
-
-# Find the closest calibration at or before a date
-closest = calib.find_calib_at_or_before("2026-02-05", room="cork")
-
-# Build a dict keyed by camera name
-by_name = {cam["name"]: cam for cam in latest.get("cameras", [])}
-first = next(iter(by_name.values()), None)
-if first:
-    print(first["serial"], first["position"], first["orientation"])
+geometry_by_serial = latest["camera_geometry_by_serial"]
 ```
 
-When the `.mcal` path is used, the top-level `cameras` list keeps the old compact schema
-(`name`, `serial`, `position`, `orientation`) for compatibility. The richer `.mcal`
-content is stored separately under `latest["mcal"]`, including camera properties,
-attributes, intrinsics, extrinsics, filter settings, mask data, and the full `raw_mcal`
-tree for fields not yet normalized.
+Extract the embedded raw `.mcal` from a saved one-file snapshot:
+
+```python
+from optitrack_motive.calib import extract_raw_mcal_from_snapshot
+
+raw_mcal = extract_raw_mcal_from_snapshot("optitrack_motive/calib/cork_YYMMDD_HHMMSS.json")
+```
+
+The top-level `cameras` list keeps the old compact schema (`name`, `serial`,
+`position`, `orientation`) for compatibility. New consumers should prefer
+`camera_geometry_by_serial`.
 
 ## Recording and Playback
 
