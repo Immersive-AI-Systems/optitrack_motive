@@ -231,6 +231,17 @@ calibration does not fall back to YAML/default intrinsics. Auxiliary cameras
 remain in the parsed `.mcal` tree even when they are not selected for pose
 geometry.
 
+Before fetching calibration from a new computer, install a fresh local SSH key
+on the Windows Motive PC:
+
+```bash
+bash scripts/setup_windows_ssh_key.sh Admin kyushu
+```
+
+The setup script creates a new project-specific key under `~/.ssh`, installs
+the public key on the Windows host, and updates a managed `~/.ssh/config` block
+so normal `ssh Admin@kyushu` and calibration-fetch commands use that key.
+
 Default saved snapshots use:
 
 `optitrack_motive/calib/<room>_YYMMDD_HHMMSS.json`
