@@ -13,7 +13,7 @@ Arguments:
   host      Windows SSH host or IP, for example kyushu
 
 Environment:
-  SSH_PASSWORD         Password to use instead of prompting
+  SSH_PASSWORD         Password for non-interactive setup; requires expect
   SSH_KEY_DIR          Directory for the generated key, default ~/.ssh
   SSH_CONFIG_PATH      Config file to update, default ~/.ssh/config
   WIN_AUTH_KEYS_PATH   Windows authorized_keys path override
@@ -56,7 +56,6 @@ need_cmd() {
 
 need_cmd awk
 need_cmd base64
-need_cmd expect
 need_cmd hostname
 need_cmd iconv
 need_cmd ssh
@@ -75,11 +74,6 @@ KEY_COMMENT="optitrack_motive:${TARGET}:${LOCAL_HOST}:${STAMP}"
 
 echo "Generating fresh SSH key at ${KEY_PATH}"
 ssh-keygen -t ed25519 -a 64 -f "${KEY_PATH}" -N "" -C "${KEY_COMMENT}" >/dev/null
-
-if [[ -z "${PASSWORD}" ]]; then
-  read -rsp "SSH password for ${TARGET}: " PASSWORD
-  echo
-fi
 
 PUBKEY_PATH="${KEY_PATH}.pub"
 PUBKEY_CONTENT="$(<"${PUBKEY_PATH}")"
@@ -132,7 +126,9 @@ PS
 ENCODED_PS="$(printf '%s' "${PS_SCRIPT}" | iconv -t UTF-16LE | base64 | tr -d '\n')"
 
 echo "Installing public key to ${TARGET}"
-WINDOWS_SSH_PASSWORD="${PASSWORD}" expect -f - "${TARGET}" "${ENCODED_PS}" <<'EXPECT'
+if [[ -n "${PASSWORD}" ]]; then
+  need_cmd expect
+  WINDOWS_SSH_PASSWORD="${PASSWORD}" expect -f - "${TARGET}" "${ENCODED_PS}" <<'EXPECT'
 set timeout -1
 set password $env(WINDOWS_SSH_PASSWORD)
 set target [lindex $argv 0]
@@ -155,7 +151,10 @@ expect {
   }
 }
 EXPECT
-unset PASSWORD
+  unset PASSWORD
+else
+  ssh -o StrictHostKeyChecking=accept-new -o PubkeyAuthentication=no "${TARGET}" powershell -NoProfile -NonInteractive -EncodedCommand "${ENCODED_PS}"
+fi
 
 update_ssh_config() {
   local config_dir marker_start marker_end tmp

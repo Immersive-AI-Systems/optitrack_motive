@@ -241,6 +241,8 @@ bash scripts/setup_windows_ssh_key.sh Admin kyushu
 The setup script creates a new project-specific key under `~/.ssh`, installs
 the public key on the Windows host, and updates a managed `~/.ssh/config` block
 so normal `ssh Admin@kyushu` and calibration-fetch commands use that key.
+Without `SSH_PASSWORD`, it lets OpenSSH prompt for the Windows password; using
+`SSH_PASSWORD=...` for non-interactive setup requires `expect`.
 
 Default saved snapshots use:
 
